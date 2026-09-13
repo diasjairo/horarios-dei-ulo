@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Horários DEI — montagem de horário</title>
+<style>
+:root{
+  --ink:#1c1f24; --soft:#5c6470; --rule:#d8dbe0; --rule2:#eceef1;
+  --paper:#fbfbfa; --panel:#fff; --pick:#1c1f24; --accent:#2f6fb3;
+  --TP:#fce4d6; --TPl:#e0a07c;
+  --PL:#e2efda; --PLl:#93bf82;
+  --T:#ddebf7;  --Tl:#7ba9d0;
+  --X:#f0e6f6;  --Xl:#b596cc;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-size:14px;line-height:1.5;
+  font-family:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;font-variant-numeric:tabular-nums}
+button{font:inherit;cursor:pointer}
+select{font:inherit;font-size:13px;padding:5px 9px;border:1px solid var(--rule);
+  border-radius:5px;background:#fff;color:inherit;cursor:pointer;max-width:100%}
+
+.page{max-width:1340px;margin:0 auto;padding:14px 14px 60px}
+.dois{display:grid;grid-template-columns:330px minmax(0,1fr);gap:12px;align-items:start}
+#secLista{padding-bottom:6px}
+#secLista .rot{display:flex;align-items:baseline;gap:8px}
+#secLista .count{margin-left:auto;font-size:11px;text-transform:none;letter-spacing:0;
+  font-weight:400;color:var(--soft)}
+/* altura limitada pela grelha; o valor exacto e acertado por JS */
+#list{max-height:480px;overflow-y:auto;margin:0 -14px -6px;border-top:1px solid var(--rule2)}
+#sbar .rot{text-transform:none;letter-spacing:0;font-size:11px}
+@media (max-width:980px){
+  .dois{grid-template-columns:1fr}
+  #secGrelha{order:1}
+  #secLista{order:2}
+  #list{max-height:340px !important}
+}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;
+  padding:12px 14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.card>.rot{display:block;font-size:10.5px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:#9aa1ab;margin-bottom:9px}
+.bar{background:none;border:0;padding:0}
+.bar.sticky{position:static}
+.line{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.line+.line{margin-top:12px;padding-top:12px;border-top:1px solid var(--rule2)}
+.ctl{display:flex;flex-direction:column;gap:5px;min-width:0}
+.ctl>span{font-size:11.5px;color:var(--soft);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.mini{font-size:11px;padding:2px 7px;border:1px solid var(--rule);border-radius:4px;
+  background:#fff;color:var(--soft)}
+.mini:hover{color:var(--ink);border-color:#b6bcc4}
+.go{background:var(--pick);color:#fff;border:1px solid var(--pick);border-radius:6px;
+  padding:7px 16px;font-weight:600;font-size:13px}
+.go[disabled]{opacity:.4;cursor:not-allowed}
+.count{margin-left:auto;font-size:12.5px;color:var(--soft);align-self:center}
+.gerado{font-size:11.5px;color:#9aa1ab;align-self:center}
+.aviso{max-width:60ch;padding:26px;border:1px solid var(--rule);border-radius:8px;background:#fff}
+.aviso h3{margin:0 0 8px;font-size:15px}
+.aviso p{margin:0 0 10px;font-size:13px;color:var(--soft)}
+.aviso .det{font-size:11px;color:#b42318}
+.aviso code{background:#f2f3f5;padding:1px 4px;border-radius:3px}
+.warn{font-size:12px;color:#96700f;background:#fdf6e3;border:1px solid #ecdba8;
+  border-radius:5px;padding:4px 9px}
+
+.toggles{display:flex;flex-wrap:wrap;gap:5px}
+.toggles button{padding:5px 10px;border:1px solid var(--rule);border-radius:6px;
+  background:#fff;color:var(--ink);min-width:38px;text-align:center}
+.toggles button[aria-pressed="true"]{background:var(--pick);color:#fff;border-color:var(--pick)}
+.chk{display:flex;flex-wrap:wrap;gap:6px}
+.chk button{display:inline-flex;align-items:center;gap:7px;padding:5px 11px 5px 8px;
+  border-radius:6px;border:1px solid var(--rule);background:#f4f5f7;color:#9aa1ab;
+  text-decoration:line-through}
+.chk button::before{content:"";width:14px;height:14px;border-radius:3px;flex:none;
+  border:1px solid #b6bcc4;background:#fff}
+.chk button[aria-pressed="true"]{background:#eaf2fb;border-color:#5b8fc4;color:var(--ink);
+  font-weight:600;text-decoration:none}
+.chk button[aria-pressed="true"]::before{content:"\2713";background:var(--accent);
+  border-color:var(--accent);color:#fff;font-size:10px;line-height:14px;text-align:center}
+.chk button em{font-style:normal;font-size:11px;color:var(--soft);font-weight:400}
+
+/* ---- painel de montagem ---- */
+#build{padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--rule);
+  max-height:46vh;overflow:auto}
+.uc{border:1px solid var(--rule2);border-radius:7px;padding:9px 11px;margin-bottom:8px;background:#fdfdfd}
+.yr{margin-bottom:14px}
+.yr h3{margin:0 0 8px;font-size:13px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;
+  color:var(--soft);border-bottom:2px solid var(--rule);padding-bottom:4px;
+  display:flex;gap:10px;align-items:baseline}
+.yr h3 small{font-weight:400;text-transform:none;letter-spacing:0;font-size:11.5px}
+.yr h3 small b{color:var(--accent)}
+.ucbtns{display:flex;flex-wrap:wrap;gap:6px}
+.ucwrap{display:inline-flex;align-items:stretch;border:1px solid var(--rule);
+  border-radius:6px;overflow:hidden;background:#fff}
+.ucwrap.has{border-color:#5b8fc4;background:#eaf2fb}
+.ucbtn{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border:0;
+  background:none;color:var(--ink);font-size:12.5px;text-align:left}
+.ucwrap.has .ucbtn{font-weight:600}
+.ucbtn .tick{color:var(--accent);font-weight:700}
+.ucbtn em{font-style:normal;font-size:10.5px;color:#9aa1ab}
+.ucbtn .badge{font-size:10px;font-weight:700;background:var(--accent);color:#fff;
+  border-radius:9px;padding:1px 6px}
+.ucmore{border:0;border-left:1px solid var(--rule);background:#f7f8f9;color:var(--soft);
+  padding:0 8px;font-size:11px}
+.ucwrap.has .ucmore{border-left-color:#b8d0e8;background:rgba(255,255,255,.5)}
+.ucmore.open{background:var(--pick);color:#fff}
+.opt b .reg{font-size:9px;font-weight:700;padding:0 4px;border-radius:3px;
+  background:rgba(28,31,36,.7);color:#fff;vertical-align:1px}
+#saved button{display:inline-flex;align-items:center;gap:6px;padding-right:6px}
+#saved .del{font-weight:700;opacity:.55;padding:0 2px;border-radius:3px}
+#saved .del:hover{opacity:1;background:rgba(0,0,0,.15)}
+.rg{display:inline-block;font-size:.86em;font-weight:700;line-height:1.25;
+  text-align:center;border-radius:2px;margin-left:2px;padding:0 3px}
+.rgD{background:#e8edf3;color:#2f3742;border:1px solid #9fb0c4}
+.rgPL{background:#2f3742;color:#fff;border:1px solid #2f3742}
+.uc{margin-top:9px}
+.uc h4{margin:0 0 7px;font-size:13.5px;font-weight:600;display:flex;gap:8px;align-items:baseline}
+.uc h4 small{font-weight:400;color:var(--soft);font-size:11.5px}
+.grp{display:flex;gap:8px;align-items:flex-start;padding:5px 0}
+.grp+.grp{border-top:1px dashed var(--rule2)}
+.tag{flex:none;font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;
+  border:1px solid var(--rule);background:#f2f3f5;min-width:52px;text-align:center}
+.opts{display:flex;flex-wrap:wrap;gap:5px}
+.opt{font-size:11.5px;padding:5px 9px;border-radius:5px;border:1px solid var(--rule);
+  background:#fff;color:var(--soft);text-align:left;line-height:1.35;max-width:230px}
+.opt b{display:block;color:var(--ink);font-weight:600}
+.opt .hr{display:block}
+.opt u{text-decoration:none;display:block;color:#3a424e;font-size:10.5px}
+.opt u.sala{color:#9aa1ab;font-size:10px}
+.opt[aria-pressed="true"]{border-color:var(--accent);background:#eaf2fb;color:var(--ink);
+  box-shadow:inset 0 0 0 1px var(--accent)}
+.opt.auto{border-style:dashed}
+
+main{display:block}
+.row{display:grid;grid-template-columns:32px 1fr;gap:10px;padding:9px 13px;width:100%;
+  text-align:left;background:none;border:0;border-bottom:1px solid var(--rule2);
+  border-left:3px solid transparent;cursor:pointer}
+.row:hover{background:#f3f5f7}
+.row[aria-current="true"]{background:#eef1f4;border-left-color:var(--pick)}
+.row .n{color:#9aa1ab;font-size:12px;padding-top:2px}
+.row .top{font-weight:600;font-size:13.5px}
+.row .sub{color:var(--soft);font-size:12px;margin-top:1px}
+.row .pf{color:#9aa1ab;font-size:11px;margin-top:2px}
+.row .pf mark{background:#fdf0c8;color:var(--ink);border-radius:2px;padding:0 2px}
+.pill{display:inline-block;padding:0 5px;border-radius:3px;font-size:11px;margin-right:3px;
+  border:1px solid var(--rule);background:#f2f3f5}
+
+#detail{padding:0}
+#build{padding:12px 14px;background:var(--panel);border:1px solid var(--rule);
+  border-radius:10px;margin-bottom:12px;max-height:46vh;overflow:auto}
+/* popup de detalhe de um turno */
+#pop{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+  background:rgba(16,24,40,.42);padding:16px}
+#pop.on{display:flex}
+#pop .box{background:#fff;border-radius:12px;max-width:420px;width:100%;padding:16px 18px;
+  box-shadow:0 12px 40px rgba(16,24,40,.28);max-height:80vh;overflow:auto}
+#pop h3{margin:0 0 3px;font-size:15px;line-height:1.25}
+#pop .sub{color:var(--soft);font-size:12px;margin-bottom:12px}
+#pop dl{margin:0;display:grid;grid-template-columns:78px 1fr;gap:6px 12px;font-size:13px}
+#pop dt{color:var(--soft);font-size:11.5px;padding-top:1px}
+#pop dd{margin:0}
+#pop .fechar{margin-top:14px;width:100%;padding:9px;border-radius:8px;
+  border:1px solid var(--rule);background:#f7f8f9;font-weight:600}
+.dhead{display:flex;flex-wrap:wrap;gap:18px;align-items:baseline;margin-bottom:14px}
+.dhead .acts{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+@media (max-width:560px){ .dhead .acts{margin-left:0;width:100%} }
+.dhead h2{margin:0;font-size:16px;font-weight:600}
+.stat{font-size:12.5px;color:var(--soft)}
+.stat b{color:var(--ink);font-weight:600;font-size:14px}
+.empty{padding:44px 20px;color:var(--soft);text-align:center}
+
+/* ---- grelha ---- */
+.grid{display:grid;grid-template-columns:50px repeat(6,1fr);border:1px solid var(--rule);
+  background:#fff;font-size:11.5px}
+.grid .hd{padding:6px 4px;text-align:center;font-weight:600;background:#f7f8f9;
+  border-bottom:1px solid var(--rule);border-left:1px solid var(--rule2)}
+.grid .hd:first-child{border-left:0}
+.col{position:relative;border-left:1px solid var(--rule2)}
+.slot{height:14px;border-bottom:1px solid #f0f2f4}
+.slot.hour{border-bottom:2px solid #bfc6cf}
+.tl{height:14px;font-size:10px;color:#8d949e;text-align:right;padding-right:5px;
+  border-bottom:1px solid #f0f2f4;line-height:14px}
+.tl.hour{border-bottom:2px solid #bfc6cf}
+.ev{position:absolute;left:2px;right:2px;border-radius:3px;border:1px solid;padding:1px 3px;
+  overflow:hidden}
+.ev b{font-weight:700;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;
+  word-break:break-word}
+.ev i{font-style:normal;display:block;color:#2f3742;white-space:nowrap}
+.ev i em{font-style:normal;font-weight:700}
+.ev u{text-decoration:none;display:block;color:#3a424e;overflow:hidden;
+  white-space:nowrap;text-overflow:ellipsis}
+.ev u.sala{color:#5c6470}
+.ev.ov{border-style:dashed;border-width:2px}
+.ev.ov .ovtag{position:absolute;top:0;right:0;font-size:8px;font-weight:700;padding:0 3px;
+  background:rgba(28,31,36,.78);color:#fff;border-bottom-left-radius:3px}
+.gap{position:absolute;left:2px;right:2px;border-radius:3px;font-size:10px;color:#7a828d;
+  padding:1px 4px;border:1px dashed #c9ced6;
+  background:repeating-linear-gradient(135deg,#f2f3f5,#f2f3f5 4px,#e7e9ec 4px,#e7e9ec 8px)}
+
+@media (max-width:900px){
+  main{grid-template-columns:1fr}
+  #list{max-height:300px;border-right:0;border-bottom:1px solid var(--rule)}
+  .bar.sticky{position:static}
+}
+@media print{
+  .card,#build,#list,.dhead,.noprint,.gap,#pop{display:none !important}
+  #secGrelha{display:block !important;border:0;padding:0;margin:0;box-shadow:none}
+  #secGrelha .rot{display:none}
+  .page{max-width:none;padding:0;margin:0}
+  main{display:block}
+  #detail{padding:0;position:static}
+  body{background:#fff;margin:0}
+  .grid{font-size:7.5pt;page-break-inside:avoid;border-color:#333;width:100%}
+  .grid{grid-template-columns:30px repeat(6,1fr)}
+  .tl{font-size:6.5pt;padding-right:3px}
+  .grid .hd{font-size:7.5pt;padding:3px 2px}
+  .ev{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{size:A4 portrait;margin:8mm}
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+
+<section class="card">
+  <span class="rot">Curso</span>
+  <div class="bar"><div class="line">
+    <div class="ctl"><span>Modo</span>
+      <div class="toggles" id="modo">
+        <button type="button" data-m="pre" aria-pressed="true">Horários publicados</button>
+        <button type="button" data-m="man" aria-pressed="false">Escolher UCs</button>
+      </div>
+    </div>
+    <label class="ctl" style="flex:1 1 300px"><span>Curso</span>
+      <select id="curso"></select></label>
+    <div class="ctl" id="wReg"><span>Regime</span>
+      <div class="toggles" id="regime">
+        <button type="button" data-r="D" aria-pressed="true">Diurno</button>
+        <button type="button" data-r="PL" aria-pressed="false">Pós-laboral</button>
+        <button type="button" data-r="*" aria-pressed="false">Ambos</button>
+      </div>
+    </div>
+    <label class="ctl" id="wAno"><span>Ano</span><select id="ano"></select></label>
+    <label class="ctl" id="wRamo" style="flex:1 1 240px"><span>Ramo</span>
+      <select id="ramo"></select></label>
+    <label class="ctl" id="wPreset" hidden><span>Turma</span>
+      <select id="preset"></select></label>
+  </div>
+  <div class="line">
+    <button class="mini" id="limpar">Reiniciar tudo</button>
+    <button class="mini" id="recarregar" title="Volta a descarregar os dados publicados, ignorando a cache do browser">Verificar atualizações</button>
+    <span class="gerado" id="gerado"></span>
+  </div>
+  <div class="line" id="modehint"><span class="warn" id="hintText"></span></div>
+  </div>
+</section>
+
+<div id="build"></div>
+<section class="card"><span class="rot">Filtros</span>
+  <div class="line" id="fbar">
+    <label class="ctl"><span>Ordenar por</span>
+      <select id="sort">
+        <option value="dml">Dias, depois tempo morto</option>
+        <option value="mdl">Tempo morto, depois dias</option>
+        <option value="late">Acabar mais cedo</option>
+        <option value="early">Começar mais tarde</option>
+      </select></label>
+    <label class="ctl"><span>Máximo de dias</span>
+      <select id="maxd"><option value="6">Sem limite</option><option value="5">5</option>
+        <option value="4">4</option><option value="3">3</option><option value="2">2</option>
+        <option value="1">1</option></select></label>
+    <label class="ctl"><span>Não começar antes de</span><select id="minh"></select></label>
+    <label class="ctl"><span>Acabar até</span><select id="maxh"></select></label>
+    <div class="ctl"><span>Dias a evitar</span><div class="toggles" id="avoid"></div></div>
+    <button class="mini" id="limparf">Limpar filtros</button>
+  </div>
+</section>
+
+<section class="card" id="sbar" hidden>
+  <span class="rot">Horários guardados — clica para sobrepor na grelha</span>
+  <div class="toggles" id="saved"></div>
+</section>
+
+<div class="dois">
+  <section class="card" id="secLista">
+    <span class="rot">Horários <span class="count" id="count"></span></span>
+    <div id="list"></div>
+  </section>
+
+  <section class="card" id="secGrelha"><span class="rot">Grelha de horários</span>
+    <div id="detail"></div>
+  </section>
+</div>
+
+</div>
+
+<div id="pop"><div class="box" id="popbox"></div></div>
+
+<script>
+let DATA = null;   // preenchido pelo arranque, a partir de dados.json
+let TK = [];
+let FAMS = [];
+const $ = id => document.getElementById(id);
+const DAYS = ['2.ª feira','3.ª feira','4.ª feira','5.ª feira','6.ª feira','Sábado'];
+const SHORT = ['2.ª','3.ª','4.ª','5.ª','6.ª','Sáb'];
+const T0 = 8*60, T1 = 24*60, PX = 14/30;
+const hm = m => String(Math.floor(m/60)).padStart(2,'0')+'h'+String(m%60).padStart(2,'0');
+const dur = m => m===0 ? '0h' : (Math.floor(m/60)?Math.floor(m/60)+'h':'')
+  + (m%60 ? String(m%60).padStart(2,'0') : (Math.floor(m/60)?'00':''));
+// uma cor por UC — matizes bem separados, e se faltarem varia-se a luminosidade
+const HUES = [25, 205, 130, 280, 340, 172, 48, 248, 5, 100, 310, 190];
+function corUC(i){
+  const h = HUES[i % HUES.length];
+  const volta = Math.floor(i / HUES.length);
+  const l = 90 - volta * 9, s = 62 - volta * 10;
+  return {bg: `hsl(${h} ${s}% ${l}%)`, ln: `hsl(${h} ${Math.max(s-10,25)}% ${l-30}%)`};
+}
+function mapaCores(c){
+  const ucs = [...new Set(c.t.map(t => baseMod(t.mod)))].sort((a,b)=>a.localeCompare(b,'pt'));
+  const m = new Map();
+  ucs.forEach((u,i) => m.set(u, corUC(i)));
+  return m;
+}
+
+// UC + tipologia identificam um grupo de alternativas
+const STOP = new Set(['de','da','do','das','dos','e','em','para','a','o','as','os',
+                      'ao','aos','no','na','nos','nas','com','\u00e0','\u00e0s','of','for','and','to','the']);
+const ROMANO = /^(i{1,3}|iv|v|vi{1,3}|ix|x)$/i;
+function abrevia(nome, max){
+  let p = nome.split(/\s+/).filter(w => !STOP.has(w.toLowerCase()) || ROMANO.test(w));
+  if(p.join(' ').length <= max) return p.join(' ');
+  p = p.map(w => ROMANO.test(w) || w.length <= 6 ? w
+      : w.slice(0, 5).replace(/[-\u2013]$/,'') + '.');
+  let s = p.join(' ');
+  if(s.length <= max) return s;
+  // ainda longo: iniciais em tudo menos na primeira palavra
+  s = [p[0], ...p.slice(1).map(w => ROMANO.test(w) ? w : w[0].toUpperCase() + '.')].join(' ');
+  return s.length <= max ? s : s.slice(0, max - 1) + '\u2026';
+}
+const nomeCurto = p => {
+  const w = p.split(/\s+/).filter(Boolean);
+  return w.length < 2 ? p : w[0] + ' ' + w[w.length - 1];
+};
+// as salas vêm com partes repetidas ("D_LAI2.DEI (D.S.01.08)_LAI2.DEI (D.S.01.08)");
+// mantem-se a versao mais completa de cada parte e descartam-se as redundantes
+function limpaSala(s){
+  const norm = x => x.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const out = [];
+  s.split('_').map(p => p.trim()).filter(Boolean).forEach(p => {
+    const n = norm(p);
+    if(n.length < 3){ out.push(p); return; }          // prefixo de edificio: fica sempre
+    for(let i = 0; i < out.length; i++){
+      const o = norm(out[i]);
+      if(o.length < 3) continue;
+      if(o.includes(n)) return;                        // ja temos algo mais completo
+      if(n.includes(o)){ out[i] = p; return; }         // este e mais completo
+    }
+    out.push(p);
+  });
+  return out.join('_');
+}
+const salas = arr => [...new Set((arr || []).map(limpaSala))].join(' · ');
+// quantos caracteres cabem numa linha do bloco, dada a divisao em faixas e a letra
+function porteLargura(lanes, fs){
+  const px = (document.querySelector('.col')?.clientWidth || 150) / lanes - 8;
+  return Math.max(8, Math.round(px / (fs * 0.52)));
+}
+const gkey = t => baseMod(t.mod) + '||' + (t.typ || t.wls);
+const span = t => { const a=Math.min(...t.ss.map(s=>s.a)), b=Math.max(...t.ss.map(s=>s.b)); return [a,b]; };
+const tload = t => t.ss.reduce((n,s)=>n+(s.b-s.a),0);
+
+let sel = new Map();      // gkey -> 'auto' | turno.k
+let pool = new Map();     // gkey -> [turnos]
+let modo = 'pre';         // 'pre' = turma publicada, 'man' = montagem manual
+let openUC = null;        // UC expandida no painel de montagem
+let view = [], cur = 0, lastCombos = [], wasCapped = false, conflitoMsg = '';
+const MAXROWS = 400;      // linhas desenhadas de cada vez
+
+/* ---------- povoar selectores ---------- */
+function init(){
+  let sec = '';
+  FAMS.forEach(f => {
+    if(f.sec !== sec){ sec = f.sec;
+      const og = document.createElement('optgroup'); og.label = sec;
+      $('curso').appendChild(og); }
+    const o = document.createElement('option');
+    o.value = f.acr;
+    o.textContent = f.acr + ' — ' + f.name.replace(/\s*Leiria\s*$/,'').trim();
+    $('curso').lastElementChild.appendChild(o);
+  });
+  for(let h=8; h<=24; h++){
+    const a=document.createElement('option'); a.value=h*60; a.textContent=(h===24?'24':String(h).padStart(2,'0'))+'h00';
+    $('minh').appendChild(a);
+    const b=a.cloneNode(true); $('maxh').appendChild(b);
+  }
+  $('minh').value = 8*60; $('maxh').value = 24*60;
+  $('avoid').innerHTML = SHORT.map((s,i)=>
+    `<button type="button" data-d="${i}" aria-pressed="false">${s}</button>`).join('');
+  onCourse();
+  setModo('pre');
+}
+
+/* ---------- familias de curso (D / PL) ---------- */
+function montaFamilias(){
+  FAMS = [];
+  DATA.courses.forEach(c => {
+    let f = FAMS.find(x => x.acr === c.famAcr);
+    if(!f){ f = {acr: c.famAcr, name: c.fam, sec: c.sec, cs: []}; FAMS.push(f); }
+    f.cs.push(c);
+  });
+}
+function fam(){ return FAMS.find(f => f.acr === $('curso').value) || FAMS[0]; }
+function regAtual(){
+  const b = $('regime').querySelector('[aria-pressed="true"]');
+  return b ? b.dataset.r : 'D';
+}
+function cursosAtivos(){
+  const r = regAtual();
+  const cs = fam().cs;
+  const sel2 = r === '*' ? cs : cs.filter(c => c.reg === r);
+  return (sel2.length ? sel2 : cs);
+}
+const cidsAtivos = () => cursosAtivos().map(c => c.id);
+const baseMod = m => m.replace(/\s*\[[^\]]*\]\s*$/, '');
+const regsDoTurno = t => [...new Set(t.c.map(id =>
+  (DATA.courses.find(c => c.id === id) || {}).reg).filter(Boolean))].sort();
+// diurno puro nao leva marca; pos-laboral leva PL; se servir os dois, leva ambas
+function marcaRegime(t){
+  const r = regsDoTurno(t);
+  if(r.length === 1 && r[0] === 'D') return '';
+  return r.map(x => `<span class="rg rg${x}">${x}</span>`).join('');
+}
+
+function syncRegime(){
+  const cs = fam().cs;
+  const regs = [...new Set(cs.map(c => c.reg))];
+  $('wReg').hidden = regs.length < 2;
+  $('regime').querySelectorAll('button').forEach(b => {
+    const ok = b.dataset.r === '*' || regs.includes(b.dataset.r);
+    b.hidden = !ok;
+  });
+  if(!$('regime').querySelector('[aria-pressed="true"]:not([hidden])')){
+    $('regime').querySelectorAll('button').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.r === regs[0])));
+  }
+}
+
+/* ---------- curso / ano / turmas ---------- */
+function course(){ return cursosAtivos()[0]; }
+
+function setModo(m){
+  modo = m;
+  $('modo').querySelectorAll('button').forEach(b =>
+    b.setAttribute('aria-pressed', String(b.dataset.m === m)));
+  const pre = m === 'pre';
+  $('wAno').hidden = !pre;
+  if(!pre) $('wRamo').hidden = true;
+  $('build').hidden = pre;
+  $('hintText').textContent = pre
+    ? 'Mostra os horários publicados. Escolhe curso, ano e ramo — ficas com todas as turmas desse ramo, ordenadas e filtráveis.'
+    : 'Clica nas UCs que queres ter. O site calcula todas as combinações de turnos possíveis e ordena-as pelo critério que escolheres. O ▾ ao lado de cada UC serve para fixares um turno específico.';
+  if(pre) onYear(); else buildPool();
+  refresh();
+}
+
+function onCourse(){
+  syncRegime();
+  const years = [...new Set(cursosAtivos().flatMap(c => c.years))].sort();
+  const keep = $('ano').value;
+  $('ano').innerHTML = years.map(y=>`<option value="${y}">${y}.º ano</option>`).join('');
+  if(years.includes(+keep)) $('ano').value = keep;
+  if(modo === 'pre') onYear(); else buildPool();
+}
+
+function ramoNome(p){
+  const m = p.n.match(/-([^-]+)$/);
+  return (m ? m[1] : p.n).replace(/_/g,' ').replace(/^(D|PL|ING)\s+/,'').trim();
+}
+
+function onYear(){
+  const cids = cidsAtivos(), y = +$('ano').value;
+  const pres = DATA.presets.filter(p => cids.includes(p.c) && p.y === y);
+  const pids = [...new Set(pres.map(p => p.p))];
+  const plans = cursosAtivos().flatMap(c => c.plans.map(p => ({...p, cid: c.id, reg: c.reg})))
+    .filter(p => pids.includes(p.id));
+  $('wRamo').hidden = plans.length < 2;
+  $('ramo').innerHTML = (plans.length > 1 ? '<option value="">Todos os ramos</option>' : '')
+    + plans.map(p => `<option value="${p.id}">${ramoNome(p)}`
+      + (cursosAtivos().length > 1 ? ` (${p.reg})` : '') + `</option>`).join('');
+}
+
+function buildPool(){
+  const cids = cidsAtivos();
+  pool = new Map();
+  TK.filter(t => t.c.some(id => cids.includes(id))).forEach(t => {
+    const g = gkey(t);
+    if(!pool.has(g)) pool.set(g, []);
+    pool.get(g).push(t);
+  });
+  pool.forEach(v => v.sort((a,b)=>
+    regsDoTurno(a).join().localeCompare(regsDoTurno(b).join()) ||
+    a.wls.localeCompare(b.wls,'pt',{numeric:true})));
+  renderBuild();
+}
+
+function yearOf(list){
+  const cids = cidsAtivos();
+  const ys = list.flatMap(t => t.y
+    .map(y => y.split(':'))
+    .filter(([c]) => cids.includes(+c))
+    .map(([,y]) => +y));
+  return ys.length ? Math.min(...ys) : 0;
+}
+
+function renderBuild(){
+  const ucs = new Map();
+  pool.forEach((list, g) => {
+    const mod = baseMod(list[0].mod);
+    if(!ucs.has(mod)) ucs.set(mod, []);
+    ucs.get(mod).push([g, list]);
+  });
+  const byYear = new Map();
+  [...ucs.entries()].forEach(([mod, grps]) => {
+    const y = yearOf(grps[0][1]);
+    if(!byYear.has(y)) byYear.set(y, []);
+    byYear.get(y).push([mod, grps]);
+  });
+  const html = [...byYear.entries()].sort((a,b)=>a[0]-b[0]).map(([y, mods]) => {
+    const nsel = mods.filter(([,grps]) => grps.some(([g]) => sel.has(g))).length;
+    mods.sort((a,b)=>a[0].localeCompare(b[0],'pt'));
+    const chips = mods.map(([mod, grps]) => {
+      const n = grps.filter(([g]) => sel.has(g)).length;
+      const nome = mod.replace(/\s*\[[^\]]*\]\s*$/,'');
+      const fix = grps.filter(([g]) => sel.get(g) && sel.get(g) !== 'auto').length;
+      return `<span class="ucwrap${n?' has':''}">
+        <button type="button" class="ucbtn" data-uc="${mod.replace(/"/g,'&quot;')}">
+          ${n?'<span class="tick">\u2713</span>':''}${nome}
+          <em>${grps.map(([,l])=>(l[0].typ||l[0].wls)+'×'+l.length).join(' · ')}</em>
+          ${fix?`<span class="badge">${fix} fixo${fix>1?'s':''}</span>`:''}</button>
+        <button type="button" class="ucmore${openUC===mod?' open':''}"
+          data-more="${mod.replace(/"/g,'&quot;')}" title="Escolher turnos específicos">&#9662;</button>
+      </span>`;
+    }).join('');
+    const open = mods.find(([mod]) => mod === openUC);
+    const rows = !open ? '' : open[1].map(([g, list]) => {
+      const opts = list.map(t => {
+        // sem horas nem dias: um turno pode ter sessoes em dias diferentes e
+        // um intervalo unico daria a ideia errada de uma aula continua
+        const wmin = Math.min(...t.ss.map(s=>s.w));
+        return `<button type="button" class="opt" data-g="${g}" data-k="${t.k}"
+          aria-pressed="${sel.get(g)===String(t.k)}">
+          <b>${t.wls}${marcaRegime(t)}</b>
+          <u>${t.tt.length ? t.tt.map(nomeCurto).join(' · ') : '—'}</u>
+          ${wmin<DATA.nw?`<u class="sala">${wmin}/${DATA.nw} semanas</u>`:''}</button>`;
+      }).join('');
+      const st = sel.get(g);
+      return `<div class="grp"><button type="button" class="tag" data-auto="${g}"
+        aria-pressed="${st==='auto'}" title="Incluir esta UC e testar todos os turnos"
+        style="${st?'border-color:#2f6fb3;background:#eaf2fb':''}">${list[0].typ||list[0].wls}</button>
+        <div class="opts">${opts}</div></div>`;
+    }).join('');
+    const body = open
+      ? `<div class="uc"><h4>${open[0].replace(/\s*\[[^\]]*\]\s*$/,'')}</h4>${rows}</div>` : '';
+    return `<div class="yr"><h3>${y}.º ano <small>${mods.length} UCs`
+      + (nsel ? ` · <b>${nsel} selecionada${nsel>1?'s':''}</b>` : '') + `</small></h3>`
+      + `<div class="ucbtns">${chips}</div>${body}</div>`;
+  }).join('');
+  $('build').innerHTML = html || '<p class="empty">Sem aulas publicadas para este curso.</p>';
+}
+
+/* ---------- enumeracao ---------- */
+// duas sessoes so colidem se forem no mesmo dia, se as horas se cruzarem
+// E se ocorrerem em pelo menos uma semana comum
+const choca = (x, y) => x.d === y.d && x.a < y.b && y.a < x.b && (x.wm & y.wm) !== 0;
+const overlap = (A,B) => A.some(x => B.some(y => choca(x, y)));
+
+function enumerate(groups){
+  const out = [];
+  const chosen = [];
+  const flat = [];
+  let capped = false;
+  const rec = i => {
+    if(out.length >= 100000){ capped = true; return; }
+    if(i === groups.length){ out.push(chosen.slice()); return; }
+    for(const t of groups[i]){
+      if(overlap(t.ss, flat)) continue;
+      chosen.push(t); const n = flat.length; flat.push(...t.ss);
+      rec(i+1);
+      chosen.pop(); flat.length = n;
+      if(capped) return;
+    }
+  };
+  rec(0);
+  return {out, capped};
+}
+
+function score(combo){
+  const byDay = {};
+  combo.forEach(t => t.ss.forEach(s => (byDay[s.d] = byDay[s.d] || []).push(s)));
+  let dead = 0, first = 1e9, last = 0;
+  Object.values(byDay).forEach(ss => {
+    ss.sort((a,b)=>a.a-b.a);
+    for(let i=0;i<ss.length-1;i++) dead += Math.max(0, ss[i+1].a - ss[i].b);
+    first = Math.min(first, ss[0].a);
+    last = Math.max(last, ss[ss.length-1].b);
+  });
+  return {d:Object.keys(byDay).length, m:dead, f:first, l:last,
+          days:Object.keys(byDay).map(Number).sort(), t:combo};
+}
+
+function conflito(groups){
+  // procura o primeiro par de turnos incompativel entre grupos obrigatorios
+  for(let i=0;i<groups.length;i++)
+    for(let j=i+1;j<groups.length;j++)
+      if(groups[i].every(a => groups[j].every(b => overlap(a.ss, b.ss)))){
+        const A = groups[i][0], B = groups[j][0];
+        return `${A.mod.replace(/\s*\[[^\]]*\]\s*$/,'')} (${A.typ||A.wls}) choca sempre com `
+             + `${B.mod.replace(/\s*\[[^\]]*\]\s*$/,'')} (${B.typ||B.wls}) — não é possível ter as duas.`;
+      }
+  return 'Não existe nenhuma combinação sem sobreposições com estas UCs todas. Retira uma e tenta de novo.';
+}
+
+function refresh(){
+  wasCapped = false; conflitoMsg = '';
+  if(modo === 'pre'){
+    const cids = cidsAtivos(), y = +$('ano').value, rid = $('ramo').value;
+    const pres = DATA.presets.filter(p => cids.includes(p.c) && p.y === y && (!rid || p.p == rid));
+    lastCombos = pres.map(p => {
+      const s = score(p.k.map(k => TK[k]));
+      const c = DATA.courses.find(x => x.id === p.c);
+      s.lbl = p.n + (cursosAtivos().length > 1 && c ? ' · ' + c.reg : '');
+      return s;
+    });
+  } else {
+    const groups = [];
+    sel.forEach((v,g) => {
+      const list = pool.get(g) || [];
+      groups.push(v === 'auto' ? list : [TK[v]]);
+    });
+    if(!groups.length){ lastCombos = []; apply(); return; }
+    const r = enumerate(groups);
+    if(!r.out.length) conflitoMsg = conflito(groups);
+    lastCombos = r.out.map(score);
+    wasCapped = r.capped;
+  }
+  apply();
+}
+
+/* ---------- filtrar + ordenar ---------- */
+function apply(){
+  const maxd = +$('maxd').value, minh = +$('minh').value, maxh = +$('maxh').value;
+  const avoid = [...$('avoid').querySelectorAll('[aria-pressed="true"]')].map(b=>+b.dataset.d);
+
+  view = lastCombos.filter(c =>
+    c.d <= maxd && c.f >= minh && c.l <= maxh &&
+    !c.days.some(d => avoid.includes(d))
+  );
+  const cmp = {
+    mdl:(a,b)=> a.m-b.m || a.d-b.d || a.l-b.l,
+    dml:(a,b)=> a.d-b.d || a.m-b.m || a.l-b.l,
+    late:(a,b)=> a.l-b.l || a.m-b.m || a.d-b.d,
+    early:(a,b)=> b.f-a.f || a.m-b.m || a.d-b.d
+  }[$('sort').value];
+  view = view.slice().sort(cmp);
+  cur = 0;
+  render();
+}
+
+function render(){
+  $('count').innerHTML = lastCombos.length
+    ? view.length.toLocaleString('pt-PT') + ' de ' + lastCombos.length.toLocaleString('pt-PT')
+      + (modo === 'pre' ? ' turmas' : ' combinações')
+      + (wasCapped ? ' <span class="warn">pesquisa truncada aos 100 000</span>' : '')
+    : '';
+  const L = $('list');
+  if(!view.length){
+    L.innerHTML = '<p class="empty">' + (conflitoMsg ? conflitoMsg
+      : lastCombos.length ? 'Nenhuma combinação cumpre estes filtros.'
+      : modo === 'pre' ? 'Sem turmas publicadas para este ramo.'
+      : 'Escolhe UCs acima — a grelha vai-se preenchendo.') + '</p>';
+    detail(null);
+    return;
+  }
+  const shown = view.slice(0, MAXROWS);
+  L.innerHTML = shown.map((c,i) => {
+    return `<button class="row" data-i="${i}" aria-current="${i===cur}">
+      <div class="n">${i+1}</div><div>
+      <div class="top">${c.lbl ? c.lbl : (c.m===0?'Sem tempo morto':dur(c.m)+' de espera') + ' · ' + c.d + (c.d===1?' dia':' dias')}</div>
+      <div class="sub">${c.days.map(d=>`<span class="pill">${SHORT[d]}</span>`).join('')}
+        &nbsp;${hm(c.f)}–${hm(c.l)}${c.lbl ? ` · ${c.m===0?'sem espera':dur(c.m)+' de espera'} · ${c.d} dias` : ''}</div>
+      </div></button>`;
+  }).join('') + (view.length > MAXROWS
+    ? `<p class="empty" style="padding:14px">Mostradas as ${MAXROWS} melhores de
+       ${view.length.toLocaleString('pt-PT')}. Aperta os filtros para veres o resto.</p>` : '');
+  L.querySelectorAll('.row').forEach(b => b.onclick = () => { cur = +b.dataset.i; render(); });
+  const a = L.querySelector('[aria-current="true"]');
+  if(a && a.scrollIntoView) a.scrollIntoView({block:'nearest'});
+  detail(view[cur]);
+}
+
+// a lista nunca deve passar do fundo da grelha
+function acertaAltura(){
+  if(window.innerWidth <= 980){ $('list').style.maxHeight = ''; return; }
+  const g = $('secGrelha'), r = $('secLista').querySelector('.rot');
+  if(!g || !r) return;
+  const h = g.offsetHeight - r.offsetHeight - 26;   // rotulo + paddings do cartao
+  if(h > 160) $('list').style.maxHeight = h + 'px';
+}
+window.addEventListener('resize', acertaAltura);
+
+function detail(c){
+  const byDay = {};
+  for(let d=0; d<6; d++) byDay[d] = [];
+  if(c) c.t.forEach(t => t.ss.forEach(s => byDay[s.d].push(Object.assign({}, s, {tn:t}))));
+  // horarios guardados que estejam ligados sobrepoem-se, marcados a tracejado
+  guardados.filter(g => g.on).forEach(g =>
+    g.k.forEach(k => { const t = TK[k]; if(!t) return;
+      t.ss.forEach(s => byDay[s.d].push(Object.assign({}, s, {tn:t, _ov:g.nome}))); }));
+  for(let d=0; d<6; d++) byDay[d].sort((x,y)=>x.a-y.a);
+
+  let rows = '';
+  for(let m=T0; m<T1; m+=30)
+    // o traco grosso vai no FIM da linha que termina a hora certa (m = ...h30)
+    rows += `<div class="tl${m%60===30?' hour':''}">${m%60===0?hm(m):''}</div>`;
+  const slots = Array.from({length:(T1-T0)/30},(_,i)=>
+    `<div class="slot${(T0+i*30)%60===30?' hour':''}"></div>`).join('');
+
+  // com a nocao de semanas, duas aulas podem partilhar o mesmo espaco na grelha:
+  // agrupa-se em blocos que se tocam no tempo e reparte-se a largura por faixas
+  function faixas(ss){
+    let cl = [], fim = -1;
+    ss.forEach(s => {
+      if(s.a >= fim){ cl.push([]); fim = s.b; }
+      else fim = Math.max(fim, s.b);
+      cl[cl.length-1].push(s);
+    });
+    cl.forEach(grupo => {
+      const lanes = [];
+      grupo.forEach(s => {
+        let i = lanes.findIndex(l => l.every(o => !(s.a < o.b && o.a < s.b)));
+        if(i < 0){ i = lanes.length; lanes.push([]); }
+        lanes[i].push(s); s._lane = i;
+      });
+      grupo.forEach(s => s._lanes = lanes.length);
+    });
+  }
+
+  // cores atribuidas sobre tudo o que esta na grelha, incluindo sobreposicoes,
+  // para a mesma UC ter sempre a mesma cor
+  const todas = [...new Set([].concat(...Object.values(byDay)).map(s => baseMod(s.tn.mod)))]
+    .sort((a,b)=>a.localeCompare(b,'pt'));
+  const cores = new Map(todas.map((u,i) => [u, corUC(i)]));
+  const cols = [0,1,2,3,4,5].map(d => {
+    let ev = '';
+    faixas(byDay[d]);
+    byDay[d].forEach((s,i) => {
+      const top=(s.a-T0)*PX, h=(s.b-s.a)*PX, t=s.tn;
+      const uc = baseMod(t.mod);
+      const k = cores.get(uc) || {bg:'#eee', ln:'#999'};
+      const larg = 100 / s._lanes, esq = larg * s._lane;
+      // 4 linhas obrigatorias: nome / turno+horario / docente / sala.
+      // a letra encolhe conforme a altura para caber tudo, mesmo num bloco de 1h30
+      const linhas = h >= 62 ? 5 : 4;
+      // desconta bordas e padding; line-height 1.1 para apertar ao maximo
+      const fs = Math.min(10.5, Math.max(6, (h - 8) / (linhas * 1.1)));
+      const largura = porteLargura(s._lanes, fs);
+      const nome = abrevia(uc, linhas === 5 ? largura * 2 : largura);
+      const prof = [...new Set(s.t.map(nomeCurto))].join(' · ');
+      ev += `<div class="ev${s._ov ? ' ov' : ''}" data-k="${t.k}" data-d="${s.d}" data-a="${s.a}"`
+        + ` style="top:${top}px;height:${h-2}px;background:${k.bg};border-color:${k.ln};`
+        + `left:calc(${esq}% + 2px);width:calc(${larg}% - 4px);right:auto;`
+        + `font-size:${fs.toFixed(1)}px;line-height:1.1"
+        title="${uc} · ${t.typ} ${t.wls}\n${hm(s.a)}–${hm(s.b)}\n${salas(s.r)}\n${s.t.join(', ')}\n${s.w}/${DATA.nw} semanas${s.an.length?'\n'+s.an.join(' | '):''}">
+        <b style="${linhas===5?'-webkit-line-clamp:2':'-webkit-line-clamp:1'}">${nome}</b>
+        <i><em>${t.wls}</em>${marcaRegime(t)} ${hm(s.a)}–${hm(s.b)}</i>
+        <u>${prof}</u><u class="sala">${salas(s.r)}</u>
+        ${s._ov ? `<span class="ovtag">${s._ov}</span>` : ''}</div>`;
+      const nx = byDay[d][i+1];
+      if(nx && nx.a > s.b){
+        ev += `<div class="gap" style="top:${(s.b-T0)*PX}px;height:${(nx.a-s.b)*PX-2}px">
+          ${dur(nx.a-s.b)} de espera</div>`;
+      }
+    });
+    return `<div class="col">${slots}${ev}</div>`;
+  }).join('');
+
+  $('detail').innerHTML = `<div class="dhead">
+      ${!c ? '<div class="stat">Grelha vazia — ainda sem nada selecionado</div>' : `
+      ${c.lbl ? `<h2>${c.lbl}</h2>` : ''}
+      <div class="stat">Dias com aulas <b>${c.d}</b></div>
+      <div class="stat">Tempo morto <b>${c.m===0?'0h':dur(c.m)}</b></div>
+      <div class="stat">Carga semanal <b>${dur(c.t.reduce((n,t)=>n+tload(t),0))}</b></div>
+      <div class="acts">
+        <button class="mini btGuardar" type="button">Guardar horário</button>
+        <button class="mini btPrint" type="button">Imprimir / PDF</button>
+      </div>`}
+    </div>
+    <div class="grid"><div class="hd">&nbsp;</div>${DAYS.map(x=>`<div class="hd">${x}</div>`).join('')}
+      <div class="times">${rows}</div>${cols}</div>`;
+  acertaAltura();
+}
+
+/* ---------- horarios guardados (ate 5) ---------- */
+const MAXSAVE = 5;
+let guardados = [];
+try { guardados = JSON.parse(localStorage.getItem('horariosDEI') || '[]'); } catch(e){ guardados = []; }
+function persiste(){
+  try { localStorage.setItem('horariosDEI', JSON.stringify(guardados)); } catch(e){}
+}
+function renderSaved(){
+  $('sbar').hidden = guardados.length === 0;
+  $('saved').innerHTML = guardados.map((g,i) =>
+    `<button type="button" data-s="${i}" aria-pressed="${!!g.on}">${g.nome}
+      <span class="del" data-del="${i}" title="Apagar">&times;</span></button>`).join('');
+}
+function guardarAtual(){
+  const c = view[cur];
+  if(!c){ alert('Não há nenhum horário na grelha para guardar.'); return; }
+  if(guardados.length >= MAXSAVE){
+    alert('Já tens ' + MAXSAVE + ' horários guardados. Apaga um com o × antes de guardar outro.');
+    return;
+  }
+  const nome = (prompt('Nome para este horário:', 'Horário ' + (guardados.length + 1)) || '').trim();
+  if(!nome) return;
+  guardados.push({nome: nome.slice(0, 22), k: c.t.map(t => t.k), on: false});
+  persiste(); renderSaved();
+}
+/* ---------- popup de detalhe de um turno ---------- */
+function abrePop(k, d, a){
+  const t = TK[k];
+  if(!t) return;
+  const s = t.ss.find(x => x.d === +d && x.a === +a);
+  if(!s) return;
+  const turmas = [...new Set(t.g.map(gid =>
+    (DATA.presets.find(p => p.g === gid) || {}).n).filter(Boolean))];
+  const linha = (rot, val) => val ? `<dt>${rot}</dt><dd>${val}</dd>` : '';
+  $('popbox').innerHTML =
+    `<h3>${baseMod(t.mod)}</h3>
+     <div class="sub">${t.typ ? t.typ + ' · ' : ''}turno ${t.wls}${marcaRegime(t)}</div>
+     <dl>
+       ${linha('Quando', DAYS[s.d] + ', ' + hm(s.a) + '–' + hm(s.b))}
+       ${linha('Duração', dur(s.b - s.a))}
+       ${linha('Sala', salas(s.r) || '—')}
+       ${linha('Docentes', s.t.join('<br>') || '—')}
+       ${linha('Semanas', s.w + ' de ' + DATA.nw)}
+       ${linha('Alunos', s.n || '')}
+       ${linha('Turmas', turmas.length > 6
+          ? turmas.slice(0,6).join(', ') + ' e mais ' + (turmas.length-6)
+          : turmas.join(', '))}
+       ${linha('Notas', (s.an || []).join('<br>'))}
+     </dl>
+     <button class="fechar" type="button">Fechar</button>`;
+  $('pop').classList.add('on');
+}
+function fechaPop(){ $('pop').classList.remove('on'); }
+
+$('detail').addEventListener('click', e => {
+  if(e.target.closest('.btGuardar')){ guardarAtual(); return; }
+  if(e.target.closest('.btPrint')){ window.print(); return; }
+  const ev = e.target.closest('.ev');
+  if(!ev) return;
+  if($('pop').classList.contains('on')) fechaPop();
+  else abrePop(ev.dataset.k, ev.dataset.d, ev.dataset.a);
+});
+$('pop').addEventListener('click', e => {
+  if(e.target.id === 'pop' || e.target.classList.contains('fechar')) fechaPop();
+});
+document.addEventListener('keydown', e => { if(e.key === 'Escape') fechaPop(); });
+
+$('modo').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(b) setModo(b.dataset.m);
+});
+$('curso').onchange = () => { sel = new Map(); openUC = null; onCourse(); refresh(); };
+$('regime').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  $('regime').querySelectorAll('button').forEach(x =>
+    x.setAttribute('aria-pressed', String(x === b)));
+  sel = new Map(); openUC = null;
+  onCourse(); refresh();
+});
+$('ano').onchange   = () => { onYear(); refresh(); };
+$('ramo').onchange  = () => refresh();
+function limparFiltros(){
+  $('sort').value = 'dml'; $('maxd').value = '6';
+  $('minh').value = 8*60;  $('maxh').value = 24*60;
+  $('avoid').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed','false'));
+  apply();
+}
+$('limparf').onclick = limparFiltros;
+$('limpar').onclick = () => {
+  // volta ao estado de arranque da pagina; os horarios guardados mantem-se
+  sel = new Map(); openUC = null;
+  guardados.forEach(g => g.on = false); persiste(); renderSaved();
+  $('curso').selectedIndex = 0;
+  $('ano').innerHTML = '';   // forca onCourse a voltar ao 1.o ano
+  $('regime').querySelectorAll('button').forEach(b =>
+    b.setAttribute('aria-pressed', String(b.dataset.r === 'D')));
+  $('sort').value = 'dml'; $('maxd').value = '6';
+  $('minh').value = 8*60;  $('maxh').value = 24*60;
+  $('avoid').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed','false'));
+  onCourse();
+  setModo('pre');
+};
+
+$('build').addEventListener('click', ev => {
+  const uc = ev.target.closest('[data-uc]');
+  const more = ev.target.closest('[data-more]');
+  const auto = ev.target.closest('[data-auto]');
+  const opt = ev.target.closest('.opt');
+  if(!uc && !more && !auto && !opt) return;
+  const keep = $('build').scrollTop;
+  if(more){
+    openUC = (openUC === more.dataset.more) ? null : more.dataset.more;
+  } else if(uc){
+    // seleccionar/retirar a UC inteira (todas as tipologias, todos os turnos)
+    const mod = uc.dataset.uc;
+    const gs = [...pool.keys()].filter(g => baseMod(pool.get(g)[0].mod) === mod);
+    const on = gs.some(g => sel.has(g));
+    gs.forEach(g => on ? sel.delete(g) : sel.set(g, 'auto'));
+  } else if(auto){
+    const g = auto.dataset.auto;
+    if(sel.get(g) === 'auto') sel.delete(g); else sel.set(g, 'auto');
+  } else {
+    const g = opt.dataset.g, k = opt.dataset.k;
+    if(sel.get(g) === k) sel.delete(g); else sel.set(g, k);
+  }
+  renderBuild();
+  $('build').scrollTop = keep;
+  if(!more) refresh();
+});
+
+$('limparf').onclick = limparFiltros;
+$('saved').addEventListener('click', e => {
+  const del = e.target.closest('[data-del]');
+  if(del){ guardados.splice(+del.dataset.del, 1); persiste(); renderSaved(); render(); return; }
+  const b = e.target.closest('[data-s]');
+  if(!b) return;
+  const g = guardados[+b.dataset.s];
+  g.on = !g.on; persiste(); renderSaved(); render();
+});
+['sort','maxd','minh','maxh'].forEach(id => $(id).onchange = apply);
+$('avoid').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  b.setAttribute('aria-pressed', b.getAttribute('aria-pressed')==='true'?'false':'true'); apply();
+});
+
+/* ---------- arranque: carregar dados.json ---------- */
+async function carrega(forcar){
+  const url = 'dados.json' + (forcar ? '?t=' + Date.now() : '');
+  const r = await fetch(url, forcar ? {cache: 'no-store'} : {});
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+function aplicaDados(d, primeira){
+  DATA = d;
+  TK = DATA.turnos;
+  montaFamilias();
+  $('gerado').textContent = DATA.gerado ? 'dados de ' + DATA.gerado : '';
+  if(primeira) init(); else { onCourse(); refresh(); }
+}
+
+function falhaCarregamento(e){
+  $('detail').innerHTML =
+    '<div class="aviso"><h3>Não consegui carregar o <code>dados.json</code></h3>' +
+    '<p>Se abriste este ficheiro com duplo clique, o browser bloqueia a leitura de ' +
+    'ficheiros vizinhos por razões de segurança. Escolhe o <code>dados.json</code> à mão:</p>' +
+    '<p><input type="file" id="ficheiro" accept=".json"></p>' +
+    '<p class="det">' + e + '</p></div>';
+  $('ficheiro').onchange = async ev => {
+    const f = ev.target.files[0];
+    if(!f) return;
+    try { aplicaDados(JSON.parse(await f.text()), true); }
+    catch(err){ alert('Ficheiro inválido: ' + err); }
+  };
+}
+
+$('recarregar').onclick = async () => {
+  const b = $('recarregar');
+  b.disabled = true; b.textContent = 'a verificar…';
+  try { aplicaDados(await carrega(true), false); }
+  catch(e){ alert('Não foi possível obter dados novos: ' + e); }
+  b.disabled = false; b.textContent = 'Verificar atualizações';
+};
+
+carrega(false).then(d => aplicaDados(d, true)).catch(falhaCarregamento);
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+# Cursos a incluir no horario.
+# Uma linha por curso, com o ID no inicio. Comenta com # para excluir.
+# Corre  python extrair.py --listar  para veres todos os disponiveis.
+#
+# --- Licenciaturas ---
+187  LEI       Licenciatura em Engenharia Informatica (D)
+284  LEI_PL    Licenciatura em Engenharia Informatica (PL)
+265  UGM       Undergraduate in Games and Multimedia (D)
+# 198 UIGAM   duplicado de 265: todos os eventos sao os mesmos
+#
+# --- Mestrados ---
+242  MCIF      Ciberseguranca e Informatica Forense (D)
+255  MCIF_PL   Ciberseguranca e Informatica Forense (PL)
+223  MCD       Ciencia de Dados (PL)
+274  MDJD      Desenvolvimento de Jogos Digitais (D)
+371  MEI       Engenharia Informatica (D)
+# 222 MEICM   plano antigo de 2015/2016, sem aulas publicadas
+#
+# --- Tecnicos Superiores Profissionais ---
+260  CTSPCRI   Ciberseguranca e Redes Informaticas (D)
+245  CTSPDWM   Desenvolvimento Web e Multimedia (D)
+234  CTSPPSI   Programacao de Sistemas de Informacao (D)
+235  CTSPPSI_PL Programacao de Sistemas de Informacao (PL)
